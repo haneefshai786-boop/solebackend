@@ -22,16 +22,26 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: "*", // allow all frontend origins
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  credentials: true
+}));
 app.use(express.json());
 
 // MongoDB connection
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("Mongo error:", err));
+  .catch((err) => console.error("MongoDB error:", err));
 
-// Routes
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+// API Routes
 app.use("/api/userorders", userOrderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
@@ -41,7 +51,6 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/subcategories", subcategoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api/service-areas", serviceAreaRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/payments", paymentRoutes);
@@ -53,6 +62,4 @@ app.get("/", (req, res) => {
 
 // Start server
 const PORT = process.env.PORT || 3500;
-app.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`)
-);
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
