@@ -1,8 +1,7 @@
 import mongoose from "mongoose";
 
-const folderSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  vendors: [{ type: mongoose.Schema.Types.ObjectId, ref: "Vendor" }], // Add this line
+const FolderSchema = new mongoose.Schema({
+  name: { type: String, required: true }
 });
 
-export default mongoose.model("Folder", folderSchema);
+export default mongoose.model("Folder", FolderSchema);

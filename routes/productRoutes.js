@@ -7,3 +7,4 @@ router.get("/", getProducts);         // Fetch all or by subcategory
 router.post("/", createProduct);      // Add new product
 
 export default router;
+

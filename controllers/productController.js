@@ -1,13 +1,21 @@
 import Product from "../models/Product.js";
 
-// GET all products or by subcategory
+// GET all products / by subcategory / by search
 export const getProducts = async (req, res) => {
   try {
-    const { subCategory } = req.query;
+    const { subCategory, search } = req.query;
 
-    // Build query
     let query = {};
-    if (subCategory) query.subcategory = subCategory;
+
+    // ✅ Subcategory filter
+    if (subCategory) {
+      query.subcategory = subCategory;
+    }
+
+    // ✅ Search filter (IMPORTANT)
+    if (search) {
+      query.name = { $regex: search, $options: "i" };
+    }
 
     const products = await Product.find(query)
       .populate({
@@ -23,15 +31,15 @@ export const getProducts = async (req, res) => {
 
     res.json(products);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// CREATE new product
+// CREATE new product (Admin)
 export const createProduct = async (req, res) => {
   const { name, price, vendor, category, subcategory, image, description } = req.body;
 
-  // Validate required fields
   if (!name || !price || !vendor || !category || !subcategory) {
     return res.status(400).json({
       message: "All fields are required: name, price, vendor, category, subcategory"
@@ -49,7 +57,6 @@ export const createProduct = async (req, res) => {
       description
     });
 
-    // Populate the response to include vendor → folder and subcategory → category
     const populatedProduct = await product
       .populate({
         path: "vendor",

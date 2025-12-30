@@ -1,9 +1,8 @@
 // routes/adminRoutes.js
 import express from "express";
-import { adminAuth } from "../middleware/adminAuth.js";
 import {
-  loginAdmin,
   createAdmin,
+  loginAdmin,
   getFolders,
   createFolder,
   updateFolder,
@@ -27,52 +26,51 @@ import {
   getOrders,
   getOrderById,
   updateOrderStatus,
-  deleteOrder
+  deleteOrder,
 } from "../controllers/adminController.js";
+
+import { adminAuth } from "../middleware/adminAuth.js";
 
 const router = express.Router();
 
-// Admin login & create
-router.post("/create", createAdmin);
+/* ------------------- Admin Auth ------------------- */
+router.post("/register", createAdmin);
 router.post("/login", loginAdmin);
 
-// All admin routes below are protected
-router.use(adminAuth);
+/* ------------------- Folder ------------------- */
+router.get("/folders", adminAuth, getFolders);
+router.post("/folders", adminAuth, createFolder);
+router.put("/folders/:id", adminAuth, updateFolder);
+router.delete("/folders/:id", adminAuth, deleteFolder);
 
-// Folder routes
-router.get("/folders", getFolders);
-router.post("/folders", createFolder);
-router.put("/folders/:id", updateFolder);
-router.delete("/folders/:id", deleteFolder);
+/* ------------------- Vendor ------------------- */
+router.get("/vendors", adminAuth, getVendors);
+router.post("/vendors", adminAuth, createVendor);
+router.put("/vendors/:id", adminAuth, updateVendor);
+router.delete("/vendors/:id", adminAuth, deleteVendor);
 
-// Vendor routes
-router.get("/vendors", getVendors);
-router.post("/vendors", createVendor);
-router.put("/vendors/:id", updateVendor);
-router.delete("/vendors/:id", deleteVendor);
+/* ------------------- Category ------------------- */
+router.get("/categories", adminAuth, getCategories);
+router.post("/categories", adminAuth, createCategory);
+router.put("/categories/:id", adminAuth, updateCategory);
+router.delete("/categories/:id", adminAuth, deleteCategory);
 
-// Category routes
-router.get("/categories", getCategories);
-router.post("/categories", createCategory);
-router.put("/categories/:id", updateCategory);
-router.delete("/categories/:id", deleteCategory);
+/* ------------------- Subcategory ------------------- */
+router.get("/subcategories", adminAuth, getSubcategories);
+router.post("/subcategories", adminAuth, createSubcategory);
+router.put("/subcategories/:id", adminAuth, updateSubcategory);
+router.delete("/subcategories/:id", adminAuth, deleteSubcategory);
 
-// Subcategory routes
-router.get("/subcategories", getSubcategories);
-router.post("/subcategories", createSubcategory);
-router.put("/subcategories/:id", updateSubcategory);
-router.delete("/subcategories/:id", deleteSubcategory);
+/* ------------------- Product ------------------- */
+router.get("/products", adminAuth, getProducts);
+router.post("/products", adminAuth, createProduct);
+router.put("/products/:id", adminAuth, updateProduct);
+router.delete("/products/:id", adminAuth, deleteProduct);
 
-// Product routes
-router.get("/products", getProducts);
-router.post("/products", createProduct);
-router.put("/products/:id", updateProduct);
-router.delete("/products/:id", deleteProduct);
-
-// Orders (ADDED – admin control)
-router.get("/orders", getOrders);
-router.get("/orders/:id", getOrderById);
-router.put("/orders/:id", updateOrderStatus);
-router.delete("/orders/:id", deleteOrder);
+/* ------------------- Orders ------------------- */
+router.get("/orders", adminAuth, getOrders);               // Get all orders
+router.get("/orders/:id", adminAuth, getOrderById);       // Get single order by ID
+router.put("/orders/:id", adminAuth, updateOrderStatus);  // Update order status/payment
+router.delete("/orders/:id", adminAuth, deleteOrder);     // Delete an order
 
 export default router;
