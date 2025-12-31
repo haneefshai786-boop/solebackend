@@ -63,7 +63,7 @@ const userOrderSchema = new mongoose.Schema(
     address: String,
     phone: String,
 
-    /* 📍 DELIVERY LOCATION (NEW) */
+    /* 📍 DELIVERY LOCATION */
     deliveryLocation: {
       type: {
         type: String,
@@ -76,24 +76,24 @@ const userOrderSchema = new mongoose.Schema(
       },
     },
 
-    /* 🚴 ASSIGNED DRIVER (NEW) */
+    /* 🚴 ASSIGNED DRIVER */
     driver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Driver",
       default: null,
     },
 
-    /* DRIVER STATUS */
+    /* 🚦 DRIVER STATUS (FIXED) */
     driverStatus: {
       type: String,
-      enum: ["Unassigned", "Assigned", "PickedUp", "Delivered"],
+      enum: ["Unassigned", "Assigned", "Accepted", "Picked", "Delivered"],
       default: "Unassigned",
     },
   },
   { timestamps: true }
 );
 
-/* GEO INDEX FOR DRIVER SEARCH */
+/* GEO INDEX */
 userOrderSchema.index({ deliveryLocation: "2dsphere" });
 
 export default mongoose.model("UserOrder", userOrderSchema);

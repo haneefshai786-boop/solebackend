@@ -1,130 +1,165 @@
-// controllers/driverController.js
 import Driver from "../models/driverModel.js";
 import UserOrder from "../models/UserOrder.js";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-/* ================================
+/* =========================
+   TOKEN GENERATOR
+========================= */
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: "30d",
+  });
+};
+
+/* =========================
    REGISTER DRIVER
-================================ */
+========================= */
 export const registerDriver = async (req, res) => {
   try {
-    const { name, email, phone, password, latitude, longitude } = req.body;
+    const { name, phone, password } = req.body;
 
-    if (!name || !email || !phone || !password) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    const existing = await Driver.findOne({ email });
-    if (existing) {
+    const exists = await Driver.findOne({ phone });
+    if (exists) {
       return res.status(400).json({ message: "Driver already exists" });
     }
 
-    // Do NOT hash manually! The schema pre-save hook handles it
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const driver = await Driver.create({
       name,
-      email,
       phone,
-      password,
-      location: {
-        type: "Point",
-        coordinates: [longitude || 0, latitude || 0],
-      },
+      password: hashedPassword,
       status: "Available",
     });
 
-    const token = jwt.sign({ id: driver._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-    res.status(201).json({ driver, token });
+    res.status(201).json({
+      _id: driver._id,
+      name: driver.name,
+      phone: driver.phone,
+      token: generateToken(driver._id),
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Driver registration failed" });
+    console.error("Register Driver Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* ================================
+/* =========================
    LOGIN DRIVER
-================================ */
+========================= */
 export const loginDriver = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { phone, password } = req.body;
 
-    const driver = await Driver.findOne({ email });
+    const driver = await Driver.findOne({ phone });
     if (!driver) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Compare entered password with hashed password
-    const isMatch = await driver.matchPassword(password);
-    if (!isMatch) {
+    const match = await bcrypt.compare(password, driver.password);
+    if (!match) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ id: driver._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-    res.json({ driver, token });
+    res.json({
+      _id: driver._id,
+      name: driver.name,
+      phone: driver.phone,
+      token: generateToken(driver._id),
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Driver login failed" });
+    console.error("Login Driver Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* ================================
+/* =========================
+   DRIVER PROFILE
+========================= */
+export const getDriverProfile = async (req, res) => {
+  try {
+    const driver = await Driver.findById(req.driver._id).select("-password");
+    res.json(driver);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* =========================
    UPDATE DRIVER LOCATION
-================================ */
+========================= */
 export const updateDriverLocation = async (req, res) => {
   try {
-    const { latitude, longitude, status } = req.body;
+    const { latitude, longitude } = req.body;
 
-    const driver = await Driver.findById(req.driver.id);
-    if (!driver) return res.status(404).json({ message: "Driver not found" });
+    const driver = await Driver.findById(req.driver._id);
 
-    if (latitude && longitude) {
-      driver.location = { type: "Point", coordinates: [longitude, latitude] };
-    }
-
-    if (status) driver.status = status;
+    driver.location = {
+      type: "Point",
+      coordinates: [longitude, latitude],
+    };
 
     await driver.save();
-    res.json({ message: "Location updated", driver });
+    res.json({ message: "Location updated" });
   } catch (err) {
-    res.status(500).json({ message: "Failed to update location" });
+    console.error("Update Location Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* ================================
-   GET ASSIGNED ORDERS
-================================ */
+/* =========================
+   GET DRIVER ORDERS
+========================= */
 export const getDriverOrders = async (req, res) => {
   try {
-    const orders = await UserOrder.find({ driver: req.driver.id })
+    const orders = await UserOrder.find({ driver: req.driver._id })
       .populate("user", "name phone")
-      .populate("products.product", "name price")
       .sort({ createdAt: -1 });
 
     res.json(orders);
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch orders" });
+    console.error("Get Driver Orders Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* ================================
+/* =========================
    UPDATE ORDER STATUS
-================================ */
+========================= */
 export const updateOrderStatus = async (req, res) => {
   try {
     const { orderId, status } = req.body;
 
-    const order = await UserOrder.findOne({ _id: orderId, driver: req.driver.id });
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    const order = await UserOrder.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (String(order.driver) !== String(req.driver._id)) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
 
     order.driverStatus = status;
 
-    if (status === "Delivered") order.status = "Completed";
+    if (status === "Delivered") {
+      order.status = "Completed";
+
+      const driver = await Driver.findById(req.driver._id);
+      driver.status = "Available";
+      await driver.save();
+    }
 
     await order.save();
 
+    const io = req.app.get("io");
+
+    // notify user
+    io?.to(`user-${order.user}`).emit("order-updated", order);
+
     res.json({ message: "Order status updated", order });
   } catch (err) {
-    res.status(500).json({ message: "Failed to update order" });
+    console.error("Update Order Status Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
